@@ -1,0 +1,151 @@
+[
+    {
+        "model": "transporte.tipodocumento",
+        "pk": 1,
+        "fields": {
+            "nombre": "DNI"
+        }
+    },
+    {
+        "model": "transporte.tipodocumento",
+        "pk": 2,
+        "fields": {
+            "nombre": "CUIT"
+        }
+    },
+    {
+        "model": "transporte.provincia",
+        "pk": 1,
+        "fields": {
+            "nombre": "Buenos Aires"
+        }
+    },
+    {
+        "model": "transporte.provincia",
+        "pk": 2,
+        "fields": {
+            "nombre": "Córdoba"
+        }
+    },
+    {
+        "model": "transporte.ciudad",
+        "pk": 1,
+        "fields": {
+            "nombre": "La Plata",
+            "provincia": 1
+        }
+    },
+    {
+        "model": "transporte.ciudad",
+        "pk": 2,
+        "fields": {
+            "nombre": "Córdoba Capital",
+            "provincia": 2
+        }
+    },
+    {
+        "model": "transporte.direccion",
+        "pk": 1,
+        "fields": {
+            "calle": "Av. 7",
+            "numero": 1234,
+            "ciudad": 1
+        }
+    },
+    {
+        "model": "transporte.direccion",
+        "pk": 2,
+        "fields": {
+            "calle": "Av. Colón",
+            "numero": 456,
+            "ciudad": 2
+        }
+    },
+    {
+        "model": "transporte.sucursal",
+        "pk": 1,
+        "fields": {
+            "nombre": "Sucursal Central",
+            "direccion": 1
+        }
+    },
+    {
+        "model": "transporte.sucursal",
+        "pk": 2,
+        "fields": {
+            "nombre": "Sucursal Norte",
+            "direccion": 2
+        }
+    },
+    {
+        "model": "transporte.tipovehiculo",
+        "pk": 1,
+        "fields": {
+            "nombre": "Camión"
+        }
+    },
+    {
+        "model": "transporte.tipovehiculo",
+        "pk": 2,
+        "fields": {
+            "nombre": "Camioneta"
+        }
+    },
+    {
+        "model": "transporte.empleado",
+        "pk": 1,
+        "fields": {
+            "nombre": "Juan",
+            "apellido": "Pérez",
+            "nro_documento": 30123456,
+            "fecha_contratacion": "2018-05-20",
+            "direccion": 1,
+            "sucursal": 1,
+            "tipo_documento": 1
+        }
+    },
+    {
+        "model": "transporte.cliente",
+        "pk": 1,
+        "fields": {
+            "nombre": "Laura",
+            "apellido": "Gómez",
+            "telefono": "3512345678",
+            "nro_documento": 32000444,
+            "tipo_documento": 1,
+            "direccion": 1
+        }
+    },
+    {
+        "model": "transporte.vehiculo",
+        "pk": "AA123BB",
+        "fields": {
+            "capacidad_carga": "1000.00",
+            "empleado": 1,
+            "tipo_vehiculo": 1
+        }
+    },
+    {
+        "model": "transporte.envio",
+        "pk": 1,
+        "fields": {
+            "fecha_envio": "2024-06-18T10:00:00Z",
+            "sucursal": 1,
+            "cliente": 1,
+            "estado": "EN_CAMINO",
+            "vehiculo": "AA123BB"
+        }
+    },
+    {
+        "model": "transporte.paquete",
+        "pk": 1,
+        "fields": {
+            "peso": "5.50",
+            "ancho": "20.00",
+            "alto": "15.00",
+            "longitud": "30.00",
+            "descripcion": "Libros escolares",
+            "envio": 1
+        }
+    }
+]
