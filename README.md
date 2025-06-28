@@ -28,6 +28,13 @@ Este tutorial te guiará paso a paso en la creación y despliegue de una aplicac
 - [Tutorial oficial de Django](https://docs.djangoproject.com/en/2.0/intro/tutorial01/)
 - [Cómo crear un entorno virtual en Python](https://docs.djangoproject.com/en/2.0/intro/contributing/)
 
+## Enunciado
+Una empresa de transporte desea crear una base de datos para gestionar la información de sus operaciones logísticas. La empresa cuenta con varias sucursales, cada una identificada por un código, nombre, dirección y ciudad. En cada sucursal trabajan varios empleados, de los cuales se desea almacenar el número de empleado, nombre completo, puesto y fecha de contratación.
+
+La empresa realiza envíos a través de diferentes vehículos, cada uno con un número de placa, tipo (camión, furgoneta, moto), capacidad de carga y el empleado que lo conduce habitualmente. Los clientes solicitan envíos proporcionando su número de identificación, nombre, dirección y número de contacto.
+
+Cada envío se registra con un código único, fecha, origen, destino, estado del envío y el vehículo asignado. Además, cada envío puede contener uno o varios paquetes, con detalles como número de paquete, peso, dimensiones y descripción del contenido.
+
 ---
 
 ## 1. Estructura del Proyecto
