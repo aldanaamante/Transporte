@@ -321,12 +321,13 @@ docker compose logs -f
 ### Ejemplo de `models.py`
 Incluye modelos bien documentados y estructurados para una gestión profesional de tus datos.
 
-> **Puedes copiar todo este bloque y pegarlo directamente en tu archivo ./src/pastas/models.py.**
+> **Puedes copiar todo este bloque y pegarlo directamente en tu archivo ./src/transporte/models.py.**
 ```python
 from django.db import models
 from django.db.models import Sum
 from django.utils.translation import gettext_lazy as _
 from datetime import date
+from django.core.exceptions import ValidationError
 
 
 class NombreAbstract(models.Model):
@@ -348,11 +349,18 @@ class NombreAbstract(models.Model):
         abstract = True
         ordering = ['nombre']
 
-
 class Provincia(NombreAbstract):
-    class Meta:
+    def clean(self):
+        super().clean()
+        if Provincia.objects.exclude(pk=self.pk).filter(nombre=self.nombre).exists():
+            raise ValidationError({'nombre': 'Ya existe una provincia con este nombre.'})
+
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Provincia')
         verbose_name_plural = _('Provincias')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre'], name='unique_provincia_nombre')
+        ]
 
 
 class Ciudad(NombreAbstract):
@@ -364,12 +372,17 @@ class Ciudad(NombreAbstract):
         help_text=_('Provincia a la que pertenece la ciudad'),
     )
 
-    def __str__(self):
-        return f"{self.nombre} ({self.provincia.nombre})"
+    def clean(self):
+        super().clean()
+        if Ciudad.objects.exclude(pk=self.pk).filter(nombre=self.nombre, provincia=self.provincia).exists():
+            raise ValidationError({'nombre': _('Ya existe una ciudad con este nombre en esta provincia.')})
 
-    class Meta:
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Ciudad')
         verbose_name_plural = _('Ciudades')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre', 'provincia'], name='unique_ciudad_nombre_provincia')
+        ]
 
 
 class Direccion(models.Model):
@@ -400,9 +413,18 @@ class Direccion(models.Model):
 
 
 class TipoDocumento(NombreAbstract):
-    class Meta:
+    def clean(self):
+        super().clean()
+        if TipoDocumento.objects.exclude(pk=self.pk).filter(nombre=self.nombre).exists():
+            raise ValidationError({'nombre': _('Ya existe un tipo de documento con este nombre.')})
+
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Tipo de documento')
         verbose_name_plural = _('Tipos de documento')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre'], name='unique_tipo_documento_nombre')
+        ]
+
 
 
 class Sucursal(NombreAbstract):
@@ -414,9 +436,17 @@ class Sucursal(NombreAbstract):
         help_text=_('Dirección de la sucursal'),
     )
 
-    class Meta:
+    def clean(self):
+        super().clean()
+        if Sucursal.objects.exclude(pk=self.pk).filter(nombre=self.nombre).exists():
+            raise ValidationError({'nombre': _('Ya existe una sucursal con este nombre.')})
+
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Sucursal')
         verbose_name_plural = _('Sucursales')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre'], name='unique_sucursal_nombre')
+        ]
 
 
 class Empleado(models.Model):
@@ -433,6 +463,7 @@ class Empleado(models.Model):
     nro_documento = models.PositiveBigIntegerField(
         _('Número de documento'),
         help_text=_('Número de documento del empleado'),
+        unique=True,
     )
     fecha_contratacion = models.DateField(
         _('Fecha de contratación'),
@@ -482,9 +513,17 @@ class Empleado(models.Model):
 
 
 class TipoVehiculo(NombreAbstract):
-    class Meta:
+    def clean(self):
+        super().clean()
+        if TipoVehiculo.objects.exclude(pk=self.pk).filter(nombre=self.nombre).exists():
+            raise ValidationError({'nombre': _('Ya existe un tipo de vehículo con este nombre.')})
+
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Tipo de vehículo')
         verbose_name_plural = _('Tipos de vehículo')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre'], name='unique_tipo_vehiculo_nombre')
+        ]
 
 
 class Cliente(models.Model):
@@ -508,6 +547,7 @@ class Cliente(models.Model):
     nro_documento = models.PositiveBigIntegerField(
         _('Número de documento'),
         help_text=_('Número de documento del cliente'),
+        unique=True,
     )
     tipo_documento = models.ForeignKey(
         TipoDocumento,
@@ -564,7 +604,8 @@ class Vehiculo(models.Model):
 
     def capacidad_restante(self):
         carga_total = Paquete.objects.filter(
-            envio__vehiculo=self
+            envio__vehiculo=self,
+            envio__estado=Envio.EstadoEnvio.EN_CAMINO  # Uso del valor del choice
         ).aggregate(total=Sum('peso'))['total'] or 0
         return self.capacidad_carga - carga_total
 
@@ -596,11 +637,19 @@ class Envio(models.Model):
         verbose_name=_('Cliente'),
         help_text=_('Cliente que recibe el envío'),
     )
+
+    class EstadoEnvio(models.TextChoices):
+        EN_CAMINO = 'EN_CAMINO', _('En camino')
+        ENTREGADO = 'ENTREGADO', _('Entregado')
+
     estado = models.CharField(
         _('Estado'),
-        max_length=50,
+        max_length=20,
+        choices=EstadoEnvio.choices,
+        default=EstadoEnvio.EN_CAMINO,
         help_text=_('Estado actual del envío'),
     )
+
     vehiculo = models.ForeignKey(
         Vehiculo,
         on_delete=models.CASCADE,
@@ -669,6 +718,7 @@ class Paquete(models.Model):
     class Meta:
         verbose_name = _('Paquete')
         verbose_name_plural = _('Paquetes')
+
 ```
 
 ---
@@ -678,76 +728,164 @@ class Paquete(models.Model):
 ### Ejemplo de `admin.py`
 Registra tus modelos para gestionarlos desde el panel de administración de Django.
 
-> **Puedes copiar todo este bloque y pegarlo directamente en tu archivo ./src/pastas/admin.py.**
+> **Puedes copiar todo este bloque y pegarlo directamente en tu archivo ./src/transporte/admin.py.**
 ```python
 from django.contrib import admin
+
 from .models import (
     Provincia, Ciudad, Direccion, TipoDocumento, Sucursal,
     Empleado, TipoVehiculo, Cliente, Vehiculo, Envio, Paquete
 )
+from .forms import ProvinciaForm, CiudadForm, SucursalForm, TipoDocumentoForm, TipoVehiculoForm
 
 @admin.register(Provincia)
 class ProvinciaAdmin(admin.ModelAdmin):
+    form = ProvinciaForm
     list_display = ("id", "nombre")
     search_fields = ("nombre",)
 
 @admin.register(Ciudad)
 class CiudadAdmin(admin.ModelAdmin):
+    form = CiudadForm
     list_display = ("id", "nombre", "provincia")
     list_filter = ("provincia",)
-    search_fields = ("nombre",)
+    search_fields = ("nombre", "provincia__nombre")
 
 @admin.register(Direccion)
 class DireccionAdmin(admin.ModelAdmin):
     list_display = ("id", "calle", "numero", "ciudad")
     list_filter = ("ciudad",)
-    search_fields = ("calle",)
+    search_fields = ("calle", "ciudad__nombre")
 
 @admin.register(TipoDocumento)
 class TipoDocumentoAdmin(admin.ModelAdmin):
+    form = TipoDocumentoForm
     list_display = ("id", "nombre")
     search_fields = ("nombre",)
 
 @admin.register(Sucursal)
 class SucursalAdmin(admin.ModelAdmin):
-    list_display = ("id", "nombre", "direccion")
-    search_fields = ("nombre",)
+    form = SucursalForm
+    list_display = ("id", "nombre", "direccion", "ciudad", "provincia")
+    search_fields = ("nombre", "direccion__calle", "direccion__ciudad__provincia__nombre")
+
+    def ciudad(self, obj):
+        return obj.direccion.ciudad
+    ciudad.short_description = "Ciudad"
+    
+    def provincia(self, obj):
+        return obj.direccion.ciudad.provincia
+    provincia.short_description = "Provincia"
 
 @admin.register(Empleado)
 class EmpleadoAdmin(admin.ModelAdmin):
-    list_display = ("id", "nombre", "apellido", "nro_documento", "fecha_contratacion", "sucursal", )
+    list_display = ("id", "nombre", "apellido", "nro_documento","tipo_documento", "sucursal", "fecha_contratacion" ,"antiguedad")
     list_filter = ("sucursal", "tipo_documento")
-    search_fields = ("nombre", "apellido")
+    search_fields = ("nombre", "apellido", "nro_documento")
 
 @admin.register(TipoVehiculo)
 class TipoVehiculoAdmin(admin.ModelAdmin):
+    form = TipoVehiculoForm
     list_display = ("id", "nombre")
     search_fields = ("nombre",)
 
 @admin.register(Cliente)
 class ClienteAdmin(admin.ModelAdmin):
-    list_display = ("id", "nombre", "apellido", "telefono", "nro_documento")
-    search_fields = ("nombre", "apellido", "nro_documento")
+    list_display = ("id", "nombre", "apellido", "telefono", "nro_documento", "direccion")
+    list_filter = ("tipo_documento",)  # <-- corregido, ahora es tupla
+    search_fields = ("nombre", "apellido", "nro_documento", "telefono")
 
 @admin.register(Vehiculo)
 class VehiculoAdmin(admin.ModelAdmin):
     list_display = ("patente", "tipo_vehiculo", "empleado", "capacidad_carga", "capacidad_restante")
-    search_fields = ("patente",)
-
+    list_filter = ("tipo_vehiculo", "empleado")
+    search_fields = ("patente", "empleado__nombre", "empleado__apellido")
 
 @admin.register(Envio)
 class EnvioAdmin(admin.ModelAdmin):
-    list_display = ("id", "fecha_envio", "cliente", "sucursal", "estado", "vehiculo")
+    list_display = ("id", "fecha_envio", "estado", "cliente", "sucursal", "vehiculo")
     list_filter = ("estado", "sucursal", "fecha_envio")
-    search_fields = ("cliente__nombre", "cliente__apellido")
+    search_fields = ("cliente__nombre", "cliente__apellido", "cliente__nro_documento")
 
 @admin.register(Paquete)
 class PaqueteAdmin(admin.ModelAdmin):
-    list_display = ("id", "peso", "ancho", "alto","longitud", "envio", "dimensiones")
+    list_display = ("id", "descripcion","dimensiones","peso", "ancho", "alto", "longitud", "envio")
     list_filter = ("envio",)
+    search_fields = ("envio__cliente__nombre", "envio__cliente__apellido")
 
+    def cliente(self, obj):
+        return obj.envio.cliente
+    cliente.short_description = "Cliente"
 ```
 
+### Ejemplo de `forms.py`
+Se utiliza para definir formularios web basados en clases. Los formularios permiten a los usuarios ingresar datos que luego pueden ser validados y procesados en el servidor de Django.
+
+> **Puedes copiar todo este bloque y pegarlo directamente en tu archivo ./src/transporte/admin.py.**
+```python
+from django import forms
+from .models import Provincia, Ciudad, Sucursal, TipoDocumento, TipoVehiculo
+
+class ProvinciaForm(forms.ModelForm):
+    class Meta:
+        model = Provincia
+        fields = "__all__"
+
+    def clean_nombre(self):
+        nombre = self.cleaned_data['nombre'].upper()
+        if Provincia.objects.exclude(pk=self.instance.pk).filter(nombre=nombre).exists():
+            raise forms.ValidationError('Ya existe una provincia con este nombre.')
+        return nombre
+
+class CiudadForm(forms.ModelForm):
+    class Meta:
+        model = Ciudad
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        nombre = cleaned_data.get('nombre')
+        provincia = cleaned_data.get('provincia')
+        if nombre and provincia:
+            nombre = nombre.upper()
+            if Ciudad.objects.exclude(pk=self.instance.pk).filter(nombre=nombre, provincia=provincia).exists():
+                raise forms.ValidationError({'nombre': 'Ya existe una ciudad con este nombre en esta provincia.'})
+            cleaned_data['nombre'] = nombre
+        return cleaned_data
+
+class SucursalForm(forms.ModelForm):
+    class Meta:
+        model = Sucursal
+        fields = "__all__"
+
+    def clean_nombre(self):
+        nombre = self.cleaned_data['nombre'].upper()
+        if Sucursal.objects.exclude(pk=self.instance.pk).filter(nombre=nombre).exists():
+            raise forms.ValidationError('Ya existe una sucursal con este nombre.')
+        return nombre
+
+class TipoDocumentoForm(forms.ModelForm):
+    class Meta:
+        model = TipoDocumento
+        fields = "__all__"
+
+    def clean_nombre(self):
+        nombre = self.cleaned_data['nombre'].upper()
+        if TipoDocumento.objects.exclude(pk=self.instance.pk).filter(nombre=nombre).exists():
+            raise forms.ValidationError('Ya existe un tipo de documento con este nombre.')
+        return nombre
+
+class TipoVehiculoForm(forms.ModelForm):
+    class Meta:
+        model = TipoVehiculo
+        fields = "__all__"
+
+    def clean_nombre(self):
+        nombre = self.cleaned_data['nombre'].upper()
+        if TipoVehiculo.objects.exclude(pk=self.instance.pk).filter(nombre=nombre).exists():
+            raise forms.ValidationError('Ya existe un tipo de vehículo con este nombre.')
+        return nombre
+```
 ---
 
 ## 11. Migraciones y Carga de Datos Iniciales
@@ -766,155 +904,367 @@ Crea la carpeta `./src/transporte/fixtures` dentro de tu app y agrega el archivo
 > **Puedes copiar todo este bloque y pegarlo directamente en tu archivo initial_data.json.**
 ```json
 [
-    {
-        "model": "transporte.tipodocumento",
-        "pk": 1,
-        "fields": {
-            "nombre": "DNI"
-        }
-    },
-    {
-        "model": "transporte.tipodocumento",
-        "pk": 2,
-        "fields": {
-            "nombre": "CUIT"
-        }
-    },
-    {
-        "model": "transporte.provincia",
-        "pk": 1,
-        "fields": {
-            "nombre": "Buenos Aires"
-        }
-    },
-    {
-        "model": "transporte.provincia",
-        "pk": 2,
-        "fields": {
-            "nombre": "Córdoba"
-        }
-    },
-    {
-        "model": "transporte.ciudad",
-        "pk": 1,
-        "fields": {
-            "nombre": "La Plata",
-            "provincia": 1
-        }
-    },
-    {
-        "model": "transporte.ciudad",
-        "pk": 2,
-        "fields": {
-            "nombre": "Córdoba Capital",
-            "provincia": 2
-        }
-    },
-    {
-        "model": "transporte.direccion",
-        "pk": 1,
-        "fields": {
-            "calle": "Av. 7",
-            "numero": 1234,
-            "ciudad": 1
-        }
-    },
-    {
-        "model": "transporte.direccion",
-        "pk": 2,
-        "fields": {
-            "calle": "Av. Colón",
-            "numero": 456,
-            "ciudad": 2
-        }
-    },
-    {
-        "model": "transporte.sucursal",
-        "pk": 1,
-        "fields": {
-            "nombre": "Sucursal Central",
-            "direccion": 1
-        }
-    },
-    {
-        "model": "transporte.sucursal",
-        "pk": 2,
-        "fields": {
-            "nombre": "Sucursal Norte",
-            "direccion": 2
-        }
-    },
-    {
-        "model": "transporte.tipovehiculo",
-        "pk": 1,
-        "fields": {
-            "nombre": "Camión"
-        }
-    },
-    {
-        "model": "transporte.tipovehiculo",
-        "pk": 2,
-        "fields": {
-            "nombre": "Camioneta"
-        }
-    },
-    {
-        "model": "transporte.empleado",
-        "pk": 1,
-        "fields": {
-            "nombre": "Juan",
-            "apellido": "Pérez",
-            "nro_documento": 30123456,
-            "fecha_contratacion": "2018-05-20",
-            "direccion": 1,
-            "sucursal": 1,
-            "tipo_documento": 1
-        }
-    },
-    {
-        "model": "transporte.cliente",
-        "pk": 1,
-        "fields": {
-            "nombre": "Laura",
-            "apellido": "Gómez",
-            "telefono": "3512345678",
-            "nro_documento": 32000444,
-            "tipo_documento": 1,
-            "direccion": 1
-        }
-    },
-    {
-        "model": "transporte.vehiculo",
-        "pk": "AA123BB",
-        "fields": {
-            "capacidad_carga": "1000.00",
-            "empleado": 1,
-            "tipo_vehiculo": 1
-        }
-    },
-    {
-        "model": "transporte.envio",
-        "pk": 1,
-        "fields": {
-            "fecha_envio": "2024-06-18T10:00:00Z",
-            "sucursal": 1,
-            "cliente": 1,
-            "estado": "En camino",
-            "vehiculo": "AA123BB"
-        }
-    },
-    {
-        "model": "transporte.paquete",
-        "pk": 1,
-        "fields": {
-            "peso": "5.50",
-            "ancho": "20.00",
-            "alto": "15.00",
-            "longitud": "30.00",
-            "descripcion": "Libros escolares",
-            "envio": 1
-        }
+  {
+    "model": "transporte.Provincia",
+    "pk": 1,
+    "fields": {
+      "nombre": "BUENOS AIRES"
     }
+  },
+  {
+    "model": "transporte.Provincia",
+    "pk": 2,
+    "fields": {
+      "nombre": "CORDOBA"
+    }
+  },
+  {
+    "model": "transporte.Provincia",
+    "pk": 3,
+    "fields": {
+      "nombre": "LA RIOJA"
+    }
+  },
+  {
+    "model": "transporte.Provincia",
+    "pk": 4,
+    "fields": {
+      "nombre": "SALTA"
+    }
+  },
+
+  {
+    "model": "transporte.Ciudad",
+    "pk": 1,
+    "fields": {
+      "nombre": "LA PLATA",
+      "provincia": 1
+    }
+  },
+  {
+    "model": "transporte.Ciudad",
+    "pk": 2,
+    "fields": {
+      "nombre": "VILLA MARIA",
+      "provincia": 2
+    }
+  },
+  {
+    "model": "transporte.Ciudad",
+    "pk": 3,
+    "fields": {
+      "nombre": "CHILECITO",
+      "provincia": 3
+    }
+  },
+  {
+    "model": "transporte.Ciudad",
+    "pk": 4,
+    "fields": {
+      "nombre": "TARTAGAL",
+      "provincia": 4
+    }
+  },
+
+
+  {
+    "model": "transporte.Direccion",
+    "pk": 1,
+    "fields": {
+      "calle": "SAN MARTIN",
+      "numero": 100,
+      "ciudad": 1
+    }
+  },
+  {
+    "model": "transporte.Direccion",
+    "pk": 2,
+    "fields": {
+      "calle": "AVENIDA PRINCIPAL",
+      "numero": 200,
+      "ciudad": 2
+    }
+  },
+  {
+    "model": "transporte.Direccion",
+    "pk": 3,
+    "fields": {
+      "calle": "AVENIDA BRASIL",
+      "numero": 2435,
+      "ciudad": 2
+    }
+  },
+  {
+    "model": "transporte.Direccion",
+    "pk": 3,
+    "fields": {
+      "calle": "AVENIDA BRASIL",
+      "numero": 2435,
+      "ciudad": 2
+    }
+  },
+  {
+    "model": "transporte.Direccion",
+    "pk": 4,
+    "fields": {
+      "calle": "CALLE LIBERTADOR",
+      "numero": 500,
+      "ciudad": 3
+    }
+  },
+  {
+    "model": "transporte.Direccion",
+    "pk": 5,
+    "fields": {
+      "calle": "CALLE INDEPENDENCIA",
+      "numero": 750,
+      "ciudad": 4
+    }
+  },
+
+
+  {
+    "model": "transporte.TipoDocumento",
+    "pk": 1,
+    "fields": {
+      "nombre": "DNI"
+    }
+  },
+  {
+    "model": "transporte.TipoDocumento",
+    "pk": 2,
+    "fields": {
+      "nombre": "PASAPORTE"
+    }
+  },
+  {
+    "model": "transporte.TipoDocumento",
+    "pk": 3,
+    "fields": {
+      "nombre": "CUIT"
+    }
+  },
+
+  {
+    "model": "transporte.Sucursal",
+    "pk": 1,
+    "fields": {
+      "nombre": "CENTRAL",
+      "direccion": 1
+    }
+  },
+  {
+    "model": "transporte.Sucursal",
+    "pk": 2,
+    "fields": {
+      "nombre": "SUCURSAL CORDOBA",
+      "direccion": 2
+    }
+  },
+  {
+    "model": "transporte.Sucursal",
+    "pk": 3,
+    "fields": {
+      "nombre": "SUCURSAL LA RIOJA",
+      "direccion": 3
+    }
+  },
+  {
+    "model": "transporte.Sucursal",
+    "pk": 4,
+    "fields": {
+      "nombre": "SUCURSAL SALTA",
+      "direccion": 4
+    }
+  },
+
+
+  {
+    "model": "transporte.TipoVehiculo",
+    "pk": 1,
+    "fields": {
+      "nombre": "CAMION"
+    }
+  },
+  {
+    "model": "transporte.TipoVehiculo",
+    "pk": 2,
+    "fields": {
+      "nombre": "FURGONETA"
+    }
+  },
+  {
+    "model": "transporte.Empleado",
+    "pk": 1,
+    "fields": {
+      "nombre": "JUAN",
+      "apellido": "PEREZ",
+      "nro_documento": 12345678,
+      "fecha_contratacion": "2020-01-10",
+      "direccion": 1,
+      "sucursal": 1,
+      "tipo_documento": 1
+    }
+  },
+  {
+    "model": "transporte.Empleado",
+    "pk": 2,
+    "fields": {
+      "nombre": "MARIA",
+      "apellido": "GOMEZ",
+      "nro_documento": 23456789,
+      "fecha_contratacion": "2023-06-01",
+      "direccion": 2,
+      "sucursal": 2,
+      "tipo_documento": 2
+    }
+  },
+  {
+    "model": "transporte.Cliente",
+    "pk": 1,
+    "fields": {
+      "nombre": "CARLOS",
+      "apellido": "RAMIREZ",
+      "telefono": "3534654245",
+      "nro_documento": 31234567,
+      "tipo_documento": 1,
+      "direccion": 1
+    }
+  },
+  {
+    "model": "transporte.Cliente",
+    "pk": 2,
+    "fields": {
+      "nombre": "LUISA",
+      "apellido": "MARTINEZ",
+      "telefono": "3537854245",
+      "nro_documento": 32346444,
+      "tipo_documento": 1,
+      "direccion": 2
+    }
+  },
+  {
+    "model": "transporte.Vehiculo",
+    "pk": "AB123CD",
+    "fields": {
+      "capacidad_carga": "1000.00",
+      "empleado": 1,
+      "tipo_vehiculo": 1
+    }
+  },
+  {
+    "model": "transporte.Vehiculo",
+    "pk": "CD456EF",
+    "fields": {
+      "capacidad_carga": "800.00",
+      "empleado": 2,
+      "tipo_vehiculo": 2
+    }
+  },
+  {
+    "model": "transporte.Vehiculo",
+    "pk": "FFF789GH",
+    "fields": {
+      "capacidad_carga": "1000.00",
+      "empleado": 2,
+      "tipo_vehiculo": 2
+    }
+  },
+  {
+    "model": "transporte.Envio",
+    "pk": 1,
+    "fields": {
+      "fecha_envio": "2025-06-25T10:00:00Z",
+      "sucursal": 1,
+      "cliente": 1,
+      "estado": "EN_CAMINO",
+      "vehiculo": "AB123CD"
+    }
+  },
+  {
+    "model": "transporte.Envio",
+    "pk": 2,
+    "fields": {
+      "fecha_envio": "2025-06-26T15:00:00Z",
+      "sucursal": 2,
+      "cliente": 2,
+      "estado": "ENTREGADO",
+      "vehiculo": "CD456EF"
+    }
+  },
+  {
+    "model": "transporte.Paquete",
+    "pk": 1,
+    "fields": {
+      "peso": "10.5",
+      "ancho": "30.0",
+      "alto": "20.0",
+      "longitud": "15.0",
+      "descripcion": "Libros escolares",
+      "envio": 1
+    }
+  },
+  {
+    "model": "transporte.Paquete",
+    "pk": 2,
+    "fields": {
+      "peso": "25.0",
+      "ancho": "50.0",
+      "alto": "40.0",
+      "longitud": "30.0",
+      "descripcion": "Electrodomésticos",
+      "envio": 2
+    }
+  },
+  {
+    "model": "transporte.Paquete",
+    "pk": 3,
+    "fields": {
+       "peso": "5.0",
+        "ancho": "20.0",
+        "alto": "10.0",
+        "longitud": "15.0",
+        "descripcion": "Ropa de invierno",
+        "envio": 1
+    }
+  },
+  {
+    "model": "transporte.Paquete",
+    "pk": 4,
+    "fields": {
+        "peso": "12.0",
+        "ancho": "35.0",
+        "alto": "25.0",
+        "longitud": "20.0",
+        "descripcion": "Material de oficina",
+        "envio": 2
+  }
+  },
+  {
+    "model": "transporte.Paquete",
+    "pk": 5,
+    "fields": {
+        "peso": "7.5",
+        "ancho": "28.0",
+        "alto": "18.0",
+        "longitud": "22.0",
+        "descripcion": "Juguetes",
+        "envio": 2
+  }
+  },
+  {
+    "model": "transporte.Paquete",
+    "pk": 6,
+    "fields": {
+        "peso": "30.0",
+        "ancho": "60.0",
+        "alto": "45.0",
+        "longitud": "35.0",
+        "descripcion": "Herramientas de trabajo",
+        "envio": 2
+    }
+  }
+
 ]
 
 ```
