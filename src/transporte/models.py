@@ -2,6 +2,7 @@ from django.db import models
 from django.db.models import Sum
 from django.utils.translation import gettext_lazy as _
 from datetime import date
+from django.core.exceptions import ValidationError
 
 
 class NombreAbstract(models.Model):
@@ -23,11 +24,18 @@ class NombreAbstract(models.Model):
         abstract = True
         ordering = ['nombre']
 
-
 class Provincia(NombreAbstract):
-    class Meta:
+    def clean(self):
+        super().clean()
+        if Provincia.objects.exclude(pk=self.pk).filter(nombre=self.nombre).exists():
+            raise ValidationError({'nombre': 'Ya existe una provincia con este nombre.'})
+
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Provincia')
         verbose_name_plural = _('Provincias')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre'], name='unique_provincia_nombre')
+        ]
 
 
 class Ciudad(NombreAbstract):
@@ -39,12 +47,17 @@ class Ciudad(NombreAbstract):
         help_text=_('Provincia a la que pertenece la ciudad'),
     )
 
-    def __str__(self):
-        return f"{self.nombre} ({self.provincia.nombre})"
+    def clean(self):
+        super().clean()
+        if Ciudad.objects.exclude(pk=self.pk).filter(nombre=self.nombre, provincia=self.provincia).exists():
+            raise ValidationError({'nombre': _('Ya existe una ciudad con este nombre en esta provincia.')})
 
-    class Meta:
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Ciudad')
         verbose_name_plural = _('Ciudades')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre', 'provincia'], name='unique_ciudad_nombre_provincia')
+        ]
 
 
 class Direccion(models.Model):
@@ -75,9 +88,18 @@ class Direccion(models.Model):
 
 
 class TipoDocumento(NombreAbstract):
-    class Meta:
+    def clean(self):
+        super().clean()
+        if TipoDocumento.objects.exclude(pk=self.pk).filter(nombre=self.nombre).exists():
+            raise ValidationError({'nombre': _('Ya existe un tipo de documento con este nombre.')})
+
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Tipo de documento')
         verbose_name_plural = _('Tipos de documento')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre'], name='unique_tipo_documento_nombre')
+        ]
+
 
 
 class Sucursal(NombreAbstract):
@@ -89,9 +111,17 @@ class Sucursal(NombreAbstract):
         help_text=_('Dirección de la sucursal'),
     )
 
-    class Meta:
+    def clean(self):
+        super().clean()
+        if Sucursal.objects.exclude(pk=self.pk).filter(nombre=self.nombre).exists():
+            raise ValidationError({'nombre': _('Ya existe una sucursal con este nombre.')})
+
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Sucursal')
         verbose_name_plural = _('Sucursales')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre'], name='unique_sucursal_nombre')
+        ]
 
 
 class Empleado(models.Model):
@@ -108,6 +138,7 @@ class Empleado(models.Model):
     nro_documento = models.PositiveBigIntegerField(
         _('Número de documento'),
         help_text=_('Número de documento del empleado'),
+        unique=True,
     )
     fecha_contratacion = models.DateField(
         _('Fecha de contratación'),
@@ -157,9 +188,17 @@ class Empleado(models.Model):
 
 
 class TipoVehiculo(NombreAbstract):
-    class Meta:
+    def clean(self):
+        super().clean()
+        if TipoVehiculo.objects.exclude(pk=self.pk).filter(nombre=self.nombre).exists():
+            raise ValidationError({'nombre': _('Ya existe un tipo de vehículo con este nombre.')})
+
+    class Meta(NombreAbstract.Meta):
         verbose_name = _('Tipo de vehículo')
         verbose_name_plural = _('Tipos de vehículo')
+        constraints = [
+            models.UniqueConstraint(fields=['nombre'], name='unique_tipo_vehiculo_nombre')
+        ]
 
 
 class Cliente(models.Model):
@@ -183,6 +222,7 @@ class Cliente(models.Model):
     nro_documento = models.PositiveBigIntegerField(
         _('Número de documento'),
         help_text=_('Número de documento del cliente'),
+        unique=True,
     )
     tipo_documento = models.ForeignKey(
         TipoDocumento,
