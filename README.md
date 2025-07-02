@@ -932,7 +932,13 @@ Crea la carpeta `./src/transporte/fixtures` dentro de tu app y agrega el archivo
       "nombre": "SALTA"
     }
   },
-
+  {
+    "model": "transporte.Provincia",
+    "pk": 5,
+    "fields": {
+      "nombre": "NEUQUEN"
+    }
+  },
   {
     "model": "transporte.Ciudad",
     "pk": 1,
@@ -965,8 +971,14 @@ Crea la carpeta `./src/transporte/fixtures` dentro de tu app y agrega el archivo
       "provincia": 4
     }
   },
-
-
+  {
+    "model": "transporte.Ciudad",
+    "pk": 5,
+    "fields": {
+      "nombre": "CUTRAL CO",
+      "provincia": 5
+    }
+  },
   {
     "model": "transporte.Direccion",
     "pk": 1,
@@ -1044,8 +1056,9 @@ Crea la carpeta `./src/transporte/fixtures` dentro de tu app y agrega el archivo
       "nombre": "CUIT"
     }
   },
+  
 
-  {
+{
     "model": "transporte.Sucursal",
     "pk": 1,
     "fields": {
@@ -1077,8 +1090,7 @@ Crea la carpeta `./src/transporte/fixtures` dentro de tu app y agrega el archivo
       "direccion": 4
     }
   },
-
-
+  
   {
     "model": "transporte.TipoVehiculo",
     "pk": 1,
@@ -1220,7 +1232,7 @@ Crea la carpeta `./src/transporte/fixtures` dentro de tu app y agrega el archivo
     "model": "transporte.Paquete",
     "pk": 3,
     "fields": {
-       "peso": "5.0",
+        "peso": "5.0",
         "ancho": "20.0",
         "alto": "10.0",
         "longitud": "15.0",
