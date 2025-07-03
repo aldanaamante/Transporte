@@ -283,6 +283,17 @@ Accede a la administración de Django en [http://localhost:8000/admin/](http://l
 ```sh
 docker compose logs -f
 ```
+### Enlistar usuarios de Django
+> **Puedes copiar todo este bloque y pegarlo directamente en tu terminal.**
+```sh
+docker compose run --rm manage shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); [print(user.username) for user in User.objects.all()]"
+```
+
+### Borrar usuarios de Django
+> **Puedes copiar todo este bloque y pegarlo directamente en tu terminal. Cambiar por el nombre del usuario que queremos borrar. (username='admin')**
+```sh
+docker compose run --rm manage shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); User.objects.filter(username='admin').delete()"
+```
 
 ---
 
@@ -303,7 +314,7 @@ docker compose logs -f
   ```sh
   docker compose down -v --remove-orphans --rmi all
   ```
-- **Limpiar recursos de Docker:**
+- **Limpiar recursos de Docker (es preferible no usarlo)**
   > **Puedes copiar todo este bloque y pegarlo directamente en tu terminal.**
   ```sh
   docker system prune -a
