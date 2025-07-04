@@ -78,6 +78,21 @@ class Direccion(models.Model):
         help_text=_('Ciudad de la dirección'),
     )
 
+    def clean(self):
+        calle_mayus = self.calle.upper() if self.calle else ''
+        existe = Direccion.objects.exclude(pk=self.pk).filter(
+            ciudad=self.ciudad,
+            calle=calle_mayus,
+            numero=self.numero
+        ).exists()
+        if existe:
+            raise ValidationError({'numero': _('Ya existe una dirección con esa calle y número en esta ciudad.')})
+
+    def save(self, *args, **kwargs):
+        if self.calle:
+            self.calle = self.calle.upper()
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.calle} {self.numero}, {self.ciudad.nombre}"
 
@@ -85,6 +100,12 @@ class Direccion(models.Model):
         verbose_name = _('Dirección')
         verbose_name_plural = _('Direcciones')
         ordering = ['ciudad__nombre', 'calle']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['calle', 'numero', 'ciudad'],
+                name='unique_direccion'
+            )
+        ]
 
 
 class TipoDocumento(NombreAbstract):
